@@ -1,0 +1,15 @@
+# Any compiled (pyc) files
+__pycache__/
+
+# User configuration
+.vscode/
+
+# Environment variables
+*.env
+
+# Misc
+.DS_Store
+create_db.sh
+.db
+.coverage
+.pytest_cache
