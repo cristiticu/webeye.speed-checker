@@ -1,7 +1,3 @@
-from exceptions import ItemNotFound
-
-
-class CurrentStatusNotFound(ItemNotFound):
+class CurrentStatusNotFound(Exception):
     def __init__(self, msg=None, error_trace=None):
-        super(CurrentStatusNotFound, self).__init__(
-            msg=msg or "Status context not found", error_trace=error_trace)
+        super(CurrentStatusNotFound, self).__init__("Status context not found")
