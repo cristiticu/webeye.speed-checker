@@ -13,3 +13,5 @@ create_db.sh
 .db
 .coverage
 .pytest_cache
+
+ouch-ecr-busted.sh

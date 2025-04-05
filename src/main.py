@@ -19,7 +19,7 @@ def lambda_handler(event: dict[str, Any], context: Context) -> dict[str, Any]:
     if result != None:
         return {
             "statusCode": 200,
-            "body": result,
+            "body": "Completed check",
             "headers": {
                 "Content-Type": "application/json"
             }

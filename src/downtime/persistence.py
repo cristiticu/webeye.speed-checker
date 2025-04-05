@@ -6,7 +6,8 @@ import settings
 
 class DowntimePersistence():
     def __init__(self):
-        self.downtimes = dynamodb_table(settings.DOWNTIMES_TABLE_NAME)
+        self.downtimes = dynamodb_table(
+            settings.DOWNTIMES_TABLE_NAME, settings.DOWNTIMES_TABLE_REGION)
 
     def persist(self, payload: DowntimeEvent | CurrentStatus | DowntimePeriod):
         self.downtimes.put_item(Item=payload.to_db_item())

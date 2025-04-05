@@ -84,10 +84,10 @@ class DowntimeService():
             self._downtimes.persist(new_downtime)
 
         patched_status = CurrentStatus.model_validate({
-            **current.model_dump(),
+            **current.model_dump(exclude_none=True),
             "status": new_status,
             "added_at": new_added_at,
-            "last_checked_from": settings.AWS_REGION_NAME
+            "last_checked_from": settings.AWS_REGION
         })
 
         self._downtimes.persist(patched_status)
@@ -103,7 +103,7 @@ class DowntimeService():
             url=url,
             check_type="http",
             status=response["status"],
-            region=settings.AWS_REGION_NAME,
+            region=settings.AWS_REGION,
             response_time=response["response_time"] if "response_time" in response else None,
             error=response["error"] if "error" in response else None,
             added_at=datetime.now(timezone.utc)

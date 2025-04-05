@@ -4,7 +4,7 @@ import os
 load_dotenv('.env')
 
 ENVIRONMENT = os.environ.get('ENVIRONMENT')
-AWS_REGION_NAME = os.environ.get('AWS_REGION_NAME', '')
+AWS_REGION = os.environ.get('AWS_REGION', '')
 
 DYNAMODB_URL_OVERRIDE = os.environ.get('DYNAMODB_URL_OVERRIDE')
 TABLE_PREFIX = os.environ.get(
