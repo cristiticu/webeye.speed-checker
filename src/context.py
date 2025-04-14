@@ -1,5 +1,5 @@
-from downtime.persistence import DowntimePersistence
-from downtime.service import DowntimeService
+from monitoring_events.persistence import MonitoringEventsPersistence
+from monitoring_events.service import MonitoringEventsService
 
 
 class ApplicationContext():
@@ -9,6 +9,6 @@ class ApplicationContext():
         return cls.instance
 
     def __init__(self):
-        self._downtimes_persistence = DowntimePersistence()
-        self.downtimes = DowntimeService(
-            self._downtimes_persistence)
+        self._monitoring_events_persistence = MonitoringEventsPersistence()
+        self.events = MonitoringEventsService(
+            self._monitoring_events_persistence)

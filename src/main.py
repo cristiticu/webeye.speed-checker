@@ -7,16 +7,12 @@ application_context = ApplicationContext()
 
 
 def lambda_handler(event: dict[str, Any], context: Context) -> dict[str, Any]:
-    user_guid = event["user_guid"]
+    u_guid = event["u_guid"]
     url = event["url"]
-    check_type = event["check_type"]
 
-    result = None
+    try:
+        application_context.events.check_webpage(u_guid, url)
 
-    if check_type == "http":
-        result = application_context.downtimes.run_http_uptime(user_guid, url)
-
-    if result != None:
         return {
             "statusCode": 200,
             "body": "Completed check",
@@ -24,7 +20,8 @@ def lambda_handler(event: dict[str, Any], context: Context) -> dict[str, Any]:
                 "Content-Type": "application/json"
             }
         }
-    else:
+
+    except Exception:
         return {
             "statusCode": 400,
             "body": "Bad Request. No result",
