@@ -16,3 +16,4 @@ create_db.sh
 
 ouch-ecr-busted.sh
 ouch-ecr-removal.sh
+push-to-stage-ecr.sh
