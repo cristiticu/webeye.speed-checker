@@ -1,9 +1,11 @@
+import os
 import json
 from typing import Any
 from aws_lambda_typing.context import Context
 from playwright.sync_api import sync_playwright
 
 from context import ApplicationContext
+import settings
 
 application_context = ApplicationContext()
 
@@ -35,41 +37,7 @@ def lambda_handler(event: dict[str, Any], context: Context) -> dict[str, Any]:
         }
 
 
-# S3_BUCKET = "your-bucket-name"
-HAR_PATH = "/tmp/performance.har"
-SCREENSHOT_PATH = "/tmp/screenshot.png"
-# HAR_PATH = "./performance.har"
-TARGET_URL = "https://weather.cristit.icu"
-
-PW_ARGS = ["--disable-gpu",
-           "--no-sandbox",
-           "--single-process",
-           "--disable-dev-shm-usage",
-           "--no-zygote",
-           "--disable-setuid-sandbox",
-           "--disable-accelerated-2d-canvas",
-           "--disable-dev-shm-usage",
-           "--no-first-run",
-           "--no-default-browser-check",
-           "--disable-background-networking",
-           "--disable-background-timer-throttling",
-           "--disable-client-side-phishing-detection",
-           "--disable-component-update",
-           "--disable-default-apps",
-           "--disable-domain-reliability",
-           "--disable-features=AudioServiceOutOfProcess",
-           "--disable-hang-monitor",
-           "--disable-ipc-flooding-protection",
-           "--disable-popup-blocking",
-           "--disable-prompt-on-repost",
-           "--disable-renderer-backgrounding",
-           "--disable-sync",
-           "--force-color-profile=srgb",
-           "--metrics-recording-only",
-           "--mute-audio",
-           "--no-pings",
-           "--use-gl=swiftshader"
-           ]
+TARGET_URL = "https://requestmetrics.com/web-performance/measure-web-performance/"
 
 
 def run(url: str):
@@ -78,13 +46,13 @@ def run(url: str):
 
         try:
             browser = p.chromium.launch(
-                headless=True, args=PW_ARGS)
+                headless=True, args=settings.PW_CHROMIUM_ARGS)
         except Exception as e:
             print("❌ Failed to launch browser:", e)
             raise
 
         try:
-            context = browser.new_context(record_har_path=HAR_PATH)
+            context = browser.new_context(record_har_path=settings.PW_HAR_PATH)
             page = context.new_page()
         except Exception as e:
             print("❌ Failed to open page or context:", e)
@@ -92,53 +60,24 @@ def run(url: str):
 
         print("Launched playwright")
 
-        # Inject JavaScript to capture core web vitals
-        page.add_init_script("""
-            (() => {
-                window.__perfMetrics = {};
-                new PerformanceObserver((entryList) => {
-                    for (const entry of entryList.getEntries()) {
-                        if (entry.name === 'first-contentful-paint') {
-                            window.__perfMetrics.FCP = entry.startTime;
-                        }
-                        if (entry.entryType === 'largest-contentful-paint') {
-                            window.__perfMetrics.LCP = entry.renderTime || entry.loadTime;
-                        }
-                    }
-                }).observe({ type: 'paint', buffered: true });
+        dirname = os.path.dirname(__file__)
 
-                new PerformanceObserver((entryList) => {
-                    const clsEntry = entryList.getEntries().pop();
-                    if (clsEntry) {
-                        window.__perfMetrics.CLS = clsEntry.value;
-                    }
-                }).observe({ type: 'layout-shift', buffered: true });
-            })();
-        """)
+        # Inject JavaScript to capture core web vitals
+        page.add_init_script(
+            path=os.path.join(dirname, "monitoring_events/scripts/initialization.js"))
 
         print(f"Added observing script. Going to url {url}")
 
         page.goto(url, wait_until="load")
-        page.wait_for_timeout(2000)
+        page.wait_for_timeout(3000)
 
         print(f"Loaded url {url}")
 
-        metrics = page.evaluate("""
-            () => {
-                const timing = performance.timing;
-                const navStart = timing.navigationStart;
-                const TTFB = timing.responseStart - navStart;
-                return {
-                    ...window.__perfMetrics,
-                    TTFB,
-                    loadTime: timing.loadEventEnd - navStart,
-                    domContentLoaded: timing.domContentLoadedEventEnd - navStart
-                };
-            }
-        """)
+        # metrics = page.evaluate(exports.METRIC_EVALUATION)
+        metrics = page.evaluate("window.__pwMetrics")
 
         print("Screenshot now")
-        page.screenshot(path=SCREENSHOT_PATH)
+        page.screenshot(path=settings.PW_SCREENSHOT_PATH)
 
         print("Screenshot success")
         context.close()

@@ -48,3 +48,4 @@ npm-debug.log
 .pyre/
 
 push-to-stage-ecr.sh
+out/
