@@ -1,5 +1,5 @@
 from monitoring_events.exceptions import CurrentStatusNotFound
-from monitoring_events.model import CurrentStatus, DowntimeEvent, DowntimePeriod
+from monitoring_events.model import CurrentStatus, MonitoringEvent, DowntimePeriod
 from dynamodb import dynamodb_table
 import settings
 
@@ -9,7 +9,7 @@ class MonitoringEventsPersistence():
         self.events = dynamodb_table(
             settings.MONITORING_EVENTS_TABLE_NAME, settings.MONITORING_EVENTS_TABLE_REGION)
 
-    def persist(self, payload: DowntimeEvent | CurrentStatus | DowntimePeriod):
+    def persist(self, payload: MonitoringEvent | CurrentStatus | DowntimePeriod):
         self.events.put_item(Item=payload.to_db_item())
 
     def get_current_status(self, u_guid: str, url: str):

@@ -21,12 +21,12 @@ class DowntimePeriod(BaseModel):
         }
 
 
-class DowntimeEvent(BaseModel):
+class MonitoringEvent(BaseModel):
     u_guid: UUID4
     url: str
     region: str
     status: str
-    r_time: int | None = None
+    results: Mapping | None = None
     error: str | None = None
     c_at: datetime
 
@@ -37,9 +37,9 @@ class DowntimeEvent(BaseModel):
         return {
             "h_key": h_key,
             "s_key": s_key,
-            "status": self.status,
             "region": self.region,
-            "r_time": self.r_time,
+            "status": self.status,
+            "results": self.results,
             "error": self.error,
         }
 
@@ -49,6 +49,7 @@ class CurrentStatus(BaseModel):
     url: str
     region: str
     status: str
+    error: str | None = None
     downtime_s_at: datetime | None = None
 
     def to_db_item(self):
@@ -59,6 +60,7 @@ class CurrentStatus(BaseModel):
             "h_key": h_key,
             "s_key": s_key,
             "status": self.status,
+            "error": self.error,
             "downtime_s_at": self.downtime_s_at.isoformat().replace("+00:00", "Z") if self.downtime_s_at else None,
         }
 

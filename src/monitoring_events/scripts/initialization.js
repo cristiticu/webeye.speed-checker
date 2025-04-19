@@ -4,18 +4,18 @@
     new PerformanceObserver((entryList) => {
         for (const entry of entryList.getEntries()) {
             if (entry) {
-                window.__pwMetrics['redirect-duration'] = entry.redirectEnd - entry.redirectStart;
-                window.__pwMetrics['dns-duration'] = entry.domainLookupEnd - entry.domainLookupStart;
-                window.__pwMetrics['tcp-handshake-duration'] = entry.connectEnd - entry.connectStart;
-                window.__pwMetrics['tls-duration'] = entry.secureConnectionStart > 0 ? entry.connectEnd - entry.secureConnectionStart : 0;
-                window.__pwMetrics['backend-duration'] = entry.responseStart - entry.requestStart;
-                window.__pwMetrics['time-to-first-byte'] = entry.responseStart;
-                window.__pwMetrics['download-duration'] = entry.responseEnd - entry.responseStart;
-                window.__pwMetrics['dom-interactive'] = entry.domInteractive;
-                window.__pwMetrics['dom-content-loaded'] = entry.domContentLoadedEventEnd;
-                window.__pwMetrics['load-duration'] = entry.loadEventEnd;
-                window.__pwMetrics['encoded-body-size'] = entry.encodedBodySize;
-                window.__pwMetrics['decoded-body-size'] = entry.decodedBodySize;
+                window.__pwMetrics['redirect-duration'] = Math.round(entry.redirectEnd - entry.redirectStart);
+                window.__pwMetrics['dns-duration'] = Math.round(entry.domainLookupEnd - entry.domainLookupStart);
+                window.__pwMetrics['tcp-handshake-duration'] = Math.round(entry.connectEnd - entry.connectStart);
+                window.__pwMetrics['tls-duration'] = Math.round(entry.secureConnectionStart > 0 ? entry.connectEnd - entry.secureConnectionStart : 0);
+                window.__pwMetrics['backend-duration'] = Math.round(entry.responseStart - entry.requestStart);
+                window.__pwMetrics['time-to-first-byte'] = Math.round(entry.responseStart);
+                window.__pwMetrics['download-duration'] = Math.round(entry.responseEnd - entry.responseStart);
+                window.__pwMetrics['dom-interactive'] = Math.round(entry.domInteractive);
+                window.__pwMetrics['dom-content-loaded'] = Math.round(entry.domContentLoadedEventEnd);
+                window.__pwMetrics['load-duration'] = Math.round(entry.loadEventEnd);
+                window.__pwMetrics['encoded-body-size'] = Math.round(entry.encodedBodySize);
+                window.__pwMetrics['decoded-body-size'] = Math.round(entry.decodedBodySize);
             }
         }
     }).observe({ type: 'navigation', buffered: true });
@@ -41,7 +41,7 @@
             }
         }
 
-        window.__pwMetrics['cumulative-layout-shift'] = calculateCLS(shifts);
+        window.__pwMetrics['cumulative-layout-shift'] = calculateCLS(shifts).toString();
     }).observe({ type: 'layout-shift', buffered: true });
 })();
 

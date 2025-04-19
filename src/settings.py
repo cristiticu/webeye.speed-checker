@@ -13,10 +13,9 @@ MONITORING_EVENTS_TABLE_REGION = "eu-central-1"
 MONITORING_EVENTS_TABLE_NAME = "webeye.monitoring-events"
 
 # S3_BUCKET = "your-bucket-name"
-PW_HAR_PATH = "/tmp/performance.har"
-PW_SCREENSHOT_PATH = "/tmp/screenshot.png"
-# PW_HAR_PATH = "./out/performance.har"
-# PW_SCREENSHOT_PATH = "./out/screenshot.png"
+PW_HAR_PATH = "./out/performance.har" if ENVIRONMENT == "test" else "/tmp/performance.har"
+PW_SCREENSHOT_PATH = "./out/screenshot.jpg" if ENVIRONMENT == "test" else "/tmp/screenshot.jpg"
+
 PW_CHROMIUM_ARGS = ["--disable-gpu",
                     "--no-sandbox",
                     "--single-process",

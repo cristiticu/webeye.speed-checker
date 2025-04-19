@@ -1,10 +1,10 @@
-import requests
-import time
+import os
 from datetime import datetime, timezone
 from typing import Mapping
+from playwright.sync_api import sync_playwright, Error
 from uuid import UUID
 from monitoring_events.exceptions import CurrentStatusNotFound
-from monitoring_events.model import CurrentStatus, DowntimeEvent
+from monitoring_events.model import CurrentStatus, MonitoringEvent
 from monitoring_events.persistence import MonitoringEventsPersistence
 import settings
 
@@ -13,38 +13,63 @@ class MonitoringEventsService():
     def __init__(self, persistence: MonitoringEventsPersistence):
         self._events = persistence
 
-    def get_http_response(self, url: str) -> Mapping:
-        with requests.Session() as session:
-            session.max_redirects = 20
+    @classmethod
+    def pw_extract_metrics(cls, url: str, check_string: str | None = None, timeout: float | None = None):
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=settings.PW_CHROMIUM_ARGS
+            )
+            context = browser.new_context(record_har_path=settings.PW_HAR_PATH)
+            page = context.new_page()
 
+            print("Launched playwright")
+
+            dirname = os.path.dirname(__file__)
+
+            page.add_init_script(
+                path=os.path.join(dirname, "scripts/initialization.js"))
+
+            print(f"Added observing script. Going to url {url}")
+
+            response = None
             try:
-                start_time = time.time_ns() // 1_000_000
-                response = session.head(url, timeout=10, allow_redirects=True)
-                response_time = time.time_ns() // 1_000_000 - start_time
+                response = page.goto(url, wait_until="load", timeout=timeout)
+            except Error as e:
+                print(e.message)
 
-                if response.status_code >= 200 and response.status_code < 300:
-                    return {
-                        'status': 'up',
-                        'response_time': response_time,
-                        'status_code': response.status_code
-                    }
-                else:
-                    if response.status_code >= 300 and response.status_code < 400:
-                        error = "Too many redirects"
-                    else:
-                        error = "HTTP/S Error"
+                context.close()
+                browser.close()
 
-                    return {
-                        'status': 'down',
-                        'response_time': response_time,
-                        'error': error,
-                        'status_code': response.status_code
-                    }
-            except requests.RequestException as e:
                 return {
-                    "status": "down",
-                    "error": str(e)
+                    "error": e.message.splitlines()[0].replace("Page.goto: ", "")
                 }
+
+            contains_check_string = False
+            if response and check_string:
+                body = response.body().decode("utf-8")
+
+                if check_string in body:
+                    contains_check_string = True
+                    print("Check string present")
+
+            page.wait_for_timeout(3000)
+
+            metrics = page.evaluate("window.__pwMetrics")
+            metrics["contains_check_string"] = contains_check_string
+            metrics["response_status"] = response.status if response else None
+
+            print("Extracted metrics")
+
+            page.screenshot(path=settings.PW_SCREENSHOT_PATH,
+                            type="jpeg", quality=50)
+
+            print("Created screenshot")
+
+            context.close()
+            browser.close()
+
+            return metrics
 
     def get_current_status_or_create(self, u_guid: str, url: str):
         try:
@@ -59,7 +84,8 @@ class MonitoringEventsService():
 
         return status
 
-    def update_current_status(self, event: DowntimeEvent, current: CurrentStatus):
+    def update_current_status(self, event: MonitoringEvent, current: CurrentStatus):
+        new_error = event.error
         new_status = event.status
         new_downtime_s_at = current.downtime_s_at
 
@@ -79,24 +105,40 @@ class MonitoringEventsService():
         patched_status = CurrentStatus.model_validate({
             **current.model_dump(exclude_none=True),
             "status": new_status,
+            "error": new_error,
             "downtime_s_at": new_downtime_s_at
         })
 
         self._events.persist(patched_status)
         return patched_status
 
-    def check_webpage(self, u_guid: str, url: str):
+    def check_webpage(self, u_guid: str, url: str, check_string: str | None = None, fail_on_status: list[str] = [], timeout: float | None = None):
         current = self.get_current_status_or_create(u_guid, url)
 
-        response = self.get_http_response(url)
+        extracted_metrics = self.pw_extract_metrics(url, check_string, timeout)
 
-        event = DowntimeEvent(
+        status = "up"
+        error = None
+
+        if "error" in extracted_metrics:
+            status = "down"
+            error = extracted_metrics["error"]
+
+        if check_string and not extracted_metrics["contains_check_string"]:
+            status = "down"
+            error = "Check string not found"
+
+        if extracted_metrics["response_status"] in fail_on_status:
+            status = "down"
+            error = "Bad response status"
+
+        event = MonitoringEvent(
             u_guid=UUID(u_guid),
             url=url,
             region=settings.AWS_REGION,
-            status=response["status"],
-            r_time=response["response_time"] if "response_time" in response else None,
-            error=response["error"] if "error" in response else None,
+            status=status,
+            results=extracted_metrics if status == "up" else None,
+            error=error,
             c_at=datetime.now(timezone.utc)
         )
 
