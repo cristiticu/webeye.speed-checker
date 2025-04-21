@@ -1,6 +1,6 @@
 from monitoring_events.exceptions import CurrentStatusNotFound
 from monitoring_events.model import CurrentStatus, MonitoringEvent, DowntimePeriod
-from dynamodb import dynamodb_table
+from utils.dynamodb import dynamodb_table
 import settings
 
 

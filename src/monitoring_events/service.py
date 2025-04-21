@@ -1,26 +1,33 @@
 import os
 from datetime import datetime, timezone
-from typing import Mapping
+import urllib.parse
 from playwright.sync_api import sync_playwright, Error
 from uuid import UUID
+import urllib.parse
+
 from monitoring_events.exceptions import CurrentStatusNotFound
 from monitoring_events.model import CurrentStatus, MonitoringEvent
 from monitoring_events.persistence import MonitoringEventsPersistence
 import settings
+from utils.bucket import s3_bucket
 
 
 class MonitoringEventsService():
     def __init__(self, persistence: MonitoringEventsPersistence):
         self._events = persistence
+        self._screenshots = s3_bucket(
+            settings.SCREENSHOTS_BUCKET_NAME, settings.SCREENSHOTS_BUCKET_REGION)
+        self._hars = s3_bucket(settings.HAR_BUCKET_NAME,
+                               settings.HAR_BUCKET_REGION)
 
-    @classmethod
-    def pw_extract_metrics(cls, url: str, check_string: str | None = None, timeout: float | None = None):
+    def pw_extract_metrics(self, u_guid: str, url: str, save_screenshot: bool, check_string: str | None = None, timeout: float | None = None):
         with sync_playwright() as p:
             browser = p.chromium.launch(
                 headless=True,
                 args=settings.PW_CHROMIUM_ARGS
             )
-            context = browser.new_context(record_har_path=settings.PW_HAR_PATH)
+            context = browser.new_context(
+                record_har_path=settings.PW_HAR_PATH, record_har_content="omit", record_har_omit_content=True)
             page = context.new_page()
 
             print("Launched playwright")
@@ -61,11 +68,15 @@ class MonitoringEventsService():
 
             print("Extracted metrics")
 
-            page.screenshot(path=settings.PW_SCREENSHOT_PATH,
-                            type="jpeg", quality=50)
+            if save_screenshot:
+                screenshot_bytes = page.screenshot(path=settings.PW_SCREENSHOT_PATH,
+                                                   type="jpeg", quality=50)
+                self._screenshots.put_object(
+                    Key=f"{u_guid}/{urllib.parse.quote(url, safe="")}.jpg", Body=screenshot_bytes)
 
-            print("Created screenshot")
+                print("Created screenshot")
 
+            print("Closing browser")
             context.close()
             browser.close()
 
@@ -94,14 +105,6 @@ class MonitoringEventsService():
         if (current.status == "unknown" or current.status == "down") and event.status == "up":
             new_downtime_s_at = None
 
-            # new_downtime = DowntimePeriod(
-            #     u_guid=current.u_guid,
-            #     url=current.url,
-            #     s_at=current.downtime_s_at or datetime.now(timezone.utc),
-            #     r_at=datetime.now(timezone.utc)
-            # )
-            # self._downtimes.persist(new_downtime)
-
         patched_status = CurrentStatus.model_validate({
             **current.model_dump(exclude_none=True),
             "status": new_status,
@@ -112,10 +115,17 @@ class MonitoringEventsService():
         self._events.persist(patched_status)
         return patched_status
 
-    def check_webpage(self, u_guid: str, url: str, check_string: str | None = None, fail_on_status: list[str] = [], timeout: float | None = None):
+    def check_webpage(self, u_guid: str, url: str, save_screenshot: bool, check_string: str | None = None, fail_on_status: list[int] = [], timeout: float | None = None):
         current = self.get_current_status_or_create(u_guid, url)
 
-        extracted_metrics = self.pw_extract_metrics(url, check_string, timeout)
+        extracted_metrics = self.pw_extract_metrics(
+            u_guid,
+            url,
+            save_screenshot,
+            check_string,
+            timeout)
+
+        print(extracted_metrics)
 
         status = "up"
         error = None
@@ -142,8 +152,14 @@ class MonitoringEventsService():
             c_at=datetime.now(timezone.utc)
         )
 
+        print("Event:", event)
+
         self._events.persist(event)
         new_status = self.update_current_status(event, current)
+
+        if event.status == "up":
+            self._hars.upload_file(
+                settings.PW_HAR_PATH, Key=f"{u_guid}/{urllib.parse.quote(url, safe="")}/{settings.AWS_REGION}/{urllib.parse.quote(event.c_at.isoformat().replace("+00:00", "Z"), safe="")}.har")
 
         return {
             "current": new_status,

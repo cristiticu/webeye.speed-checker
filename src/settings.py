@@ -12,7 +12,13 @@ TABLE_PREFIX = os.environ.get('TABLE_PREFIX', RESOURCE_PREFIX)
 MONITORING_EVENTS_TABLE_REGION = "eu-central-1"
 MONITORING_EVENTS_TABLE_NAME = "webeye.monitoring-events"
 
-# S3_BUCKET = "your-bucket-name"
+BUCKET_PREFIX = os.environ.get('BUCKET_PREFIX', RESOURCE_PREFIX)
+SCREENSHOTS_BUCKET_REGION = "eu-central-1"
+SCREENSHOTS_BUCKET_NAME = "webeye.bucket.screenshot"
+HAR_BUCKET_REGION = "eu-central-1"
+HAR_BUCKET_NAME = "webeye.bucket.har"
+
+
 PW_HAR_PATH = "./out/performance.har" if ENVIRONMENT == "test" else "/tmp/performance.har"
 PW_SCREENSHOT_PATH = "./out/screenshot.jpg" if ENVIRONMENT == "test" else "/tmp/screenshot.jpg"
 

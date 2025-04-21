@@ -3,7 +3,6 @@ from typing import Any
 from aws_lambda_typing.context import Context
 
 from context import ApplicationContext
-from monitoring_events.service import MonitoringEventsService
 import settings
 
 application_context = ApplicationContext()
@@ -12,13 +11,14 @@ application_context = ApplicationContext()
 def lambda_handler(event: dict[str, Any], context: Context) -> dict[str, Any]:
     u_guid = event["u_guid"]
     url = event["url"]
-    check_string = event["c_str"]
-    fail_on_status = event["fail_status"]
-    timeout = event["timeout"]
+    check_string = event["c_str"] if "c_str" in event else None
+    fail_on_status = event["fail_status"] if "fail_status" in event else []
+    timeout = event["timeout"] if "timeout" in event else None
+    save_screenshot = event["screenshot"] if "screenshot" in event else False
 
     try:
         application_context.events.check_webpage(
-            u_guid, url, check_string, fail_on_status, timeout)
+            u_guid, url, save_screenshot, check_string, fail_on_status, timeout)
 
         return {
             "statusCode": 200,
@@ -40,11 +40,12 @@ def lambda_handler(event: dict[str, Any], context: Context) -> dict[str, Any]:
         }
 
 
-TARGET_URL = "https://weather.cristit.icu"
+TARGET_URL = "http://string.com"
 
 
 if __name__ == "__main__":
     if settings.ENVIRONMENT == "test":
-        results = MonitoringEventsService.pw_extract_metrics(
-            TARGET_URL, "<!DOCTYPE html>", 15000)
-        print(json.dumps(results, indent=2))
+        results = application_context.events.check_webpage("03715419-f79a-4826-8c5e-5e331777b1f4",
+                                                           TARGET_URL, False, None, [], None)
+
+        print(json.dumps(results["event"].to_db_item(), indent=2))
