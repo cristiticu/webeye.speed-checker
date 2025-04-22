@@ -45,8 +45,17 @@ class MonitoringEventsService():
             except Error as e:
                 print(e.message)
 
+                print("Closing context")
                 context.close()
-                browser.close()
+
+                print("Closing pages")
+                pages = context.pages
+                for page in pages:
+                    page.close()
+
+                # print("Closing browser")
+                # if browser.is_connected():
+                #     browser.close()
 
                 return {
                     "error": e.message.splitlines()[0].replace("Page.goto: ", "")
@@ -76,10 +85,19 @@ class MonitoringEventsService():
 
                 print("Created screenshot")
 
-            print("Closing browser")
+            print("Closing context")
             context.close()
-            browser.close()
 
+            print("Closing pages")
+            pages = context.pages
+            for page in pages:
+                page.close()
+
+            # print("Closing browser")
+            # if browser.is_connected():
+            #     browser.close()
+
+            print("Returning metrics")
             return metrics
 
     def get_current_status_or_create(self, u_guid: str, url: str):
@@ -134,11 +152,11 @@ class MonitoringEventsService():
             status = "down"
             error = extracted_metrics["error"]
 
-        if check_string and not extracted_metrics["contains_check_string"]:
+        elif check_string and not extracted_metrics["contains_check_string"]:
             status = "down"
             error = "Check string not found"
 
-        if extracted_metrics["response_status"] in fail_on_status:
+        elif extracted_metrics["response_status"] in fail_on_status:
             status = "down"
             error = "Bad response status"
 

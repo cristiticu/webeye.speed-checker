@@ -40,12 +40,12 @@ def lambda_handler(event: dict[str, Any], context: Context) -> dict[str, Any]:
         }
 
 
-TARGET_URL = "http://string.com"
+TARGET_URL = "https://www.cs.ubbcluj.ro"
 
 
 if __name__ == "__main__":
     if settings.ENVIRONMENT == "test":
         results = application_context.events.check_webpage("03715419-f79a-4826-8c5e-5e331777b1f4",
-                                                           TARGET_URL, False, None, [], None)
+                                                           TARGET_URL, True, "<!DOCTYPE html", [400, 500, 404], None)
 
         print(json.dumps(results["event"].to_db_item(), indent=2))
