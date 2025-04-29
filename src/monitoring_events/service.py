@@ -121,7 +121,7 @@ class MonitoringEventsService():
             **current.model_dump(exclude_none=True),
             "status": new_status,
             "error": new_error,
-            "m_at": datetime.now(timezone.utc)
+            "m_at": event.c_at
         })
 
         self._events.persist(patched_status)
