@@ -3,24 +3,6 @@ from typing import Mapping
 from pydantic import UUID4, BaseModel
 
 
-class DowntimePeriod(BaseModel):
-    u_guid: UUID4
-    url: str
-    region: str
-    s_at: datetime
-    r_at: datetime
-
-    def to_db_item(self):
-        h_key = f"{self.u_guid}#{self.url}"
-        s_key = f"DOWNTIME#{self.s_at.isoformat().replace("+00:00", "Z")}"
-
-        return {
-            "h_key": h_key,
-            "s_key": s_key,
-            "r_at": self.r_at.isoformat().replace("+00:00", "Z")
-        }
-
-
 class MonitoringEvent(BaseModel):
     u_guid: UUID4
     url: str
@@ -50,7 +32,7 @@ class CurrentStatus(BaseModel):
     region: str
     status: str
     error: str | None = None
-    downtime_s_at: datetime | None = None
+    m_at: datetime | None = None
 
     def to_db_item(self):
         h_key = f"{self.u_guid}#{self.url}"
@@ -61,7 +43,7 @@ class CurrentStatus(BaseModel):
             "s_key": s_key,
             "status": self.status,
             "error": self.error,
-            "downtime_s_at": self.downtime_s_at.isoformat().replace("+00:00", "Z") if self.downtime_s_at else None,
+            "m_at": self.m_at.isoformat().replace("+00:00", "Z") if self.m_at else None,
         }
 
     @classmethod

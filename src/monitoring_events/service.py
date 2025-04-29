@@ -116,21 +116,16 @@ class MonitoringEventsService():
     def update_current_status(self, event: MonitoringEvent, current: CurrentStatus):
         new_error = event.error
         new_status = event.status
-        new_downtime_s_at = current.downtime_s_at
-
-        if (current.status == "unknown" or current.status == "up") and event.status == "down":
-            new_downtime_s_at = datetime.now(timezone.utc)
-        if (current.status == "unknown" or current.status == "down") and event.status == "up":
-            new_downtime_s_at = None
 
         patched_status = CurrentStatus.model_validate({
             **current.model_dump(exclude_none=True),
             "status": new_status,
             "error": new_error,
-            "downtime_s_at": new_downtime_s_at
+            "m_at": datetime.now(timezone.utc)
         })
 
         self._events.persist(patched_status)
+
         return patched_status
 
     def check_webpage(self, u_guid: str, url: str, save_screenshot: bool, check_string: str | None = None, fail_on_status: list[int] = [], timeout: float | None = None):
