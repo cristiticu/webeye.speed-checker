@@ -1,9 +1,8 @@
 import os
 from datetime import datetime, timezone
-import urllib.parse
+from typing import Any
 from playwright.sync_api import sync_playwright, Error
 from uuid import UUID
-import urllib.parse
 
 from monitoring_events.exceptions import CurrentStatusNotFound
 from monitoring_events.model import CurrentStatus, MonitoringEvent
@@ -20,7 +19,7 @@ class MonitoringEventsService():
         self._hars = s3_bucket(settings.HAR_BUCKET_NAME,
                                settings.HAR_BUCKET_REGION)
 
-    def pw_extract_metrics(self, u_guid: str, url: str, save_screenshot: bool, check_string: str | None = None, timeout: float | None = None):
+    def pw_extract_metrics(self, u_guid: str, w_guid: str, url: str, save_screenshot: bool, check_string: str | None = None, timeout: float | None = None):
         with sync_playwright() as p:
             browser = p.chromium.launch(
                 headless=True,
@@ -53,10 +52,6 @@ class MonitoringEventsService():
                 for page in pages:
                     page.close()
 
-                # print("Closing browser")
-                # if browser.is_connected():
-                #     browser.close()
-
                 return {
                     "error": e.message.splitlines()[0].replace("Page.goto: ", "")
                 }
@@ -79,9 +74,9 @@ class MonitoringEventsService():
 
             if save_screenshot:
                 screenshot_bytes = page.screenshot(path=settings.PW_SCREENSHOT_PATH,
-                                                   type="jpeg", quality=50)
+                                                   type="jpeg", quality=40)
                 self._screenshots.put_object(
-                    Key=f"{u_guid}/{urllib.parse.quote(url, safe="")}.jpg", Body=screenshot_bytes)
+                    Key=f"{u_guid}/{w_guid}.jpg", Body=screenshot_bytes)
 
                 print("Created screenshot")
 
@@ -92,10 +87,6 @@ class MonitoringEventsService():
             pages = context.pages
             for page in pages:
                 page.close()
-
-            # print("Closing browser")
-            # if browser.is_connected():
-            #     browser.close()
 
             print("Returning metrics")
             return metrics
@@ -128,11 +119,12 @@ class MonitoringEventsService():
 
         return patched_status
 
-    def check_webpage(self, u_guid: str, url: str, save_screenshot: bool, check_string: str | None = None, fail_on_status: list[int] = [], timeout: float | None = None):
+    def check_webpage(self, u_guid: str, w_guid: str, url: str, save_screenshot: bool, accepted_status: list[str], check_string: str | None = None, timeout: float | None = None):
         current = self.get_current_status_or_create(u_guid, url)
 
-        extracted_metrics = self.pw_extract_metrics(
+        extracted_metrics: Any = self.pw_extract_metrics(
             u_guid,
+            w_guid,
             url,
             save_screenshot,
             check_string,
@@ -142,6 +134,8 @@ class MonitoringEventsService():
 
         status = "up"
         error = None
+        accepted_status_code_prefixes = [
+            int(status[0]) for status in accepted_status]
 
         if "error" in extracted_metrics:
             status = "down"
@@ -151,9 +145,9 @@ class MonitoringEventsService():
             status = "down"
             error = "Check string not found"
 
-        elif extracted_metrics["response_status"] in fail_on_status:
+        elif extracted_metrics["response_status"] and not ((extracted_metrics["response_status"] / 100) in accepted_status_code_prefixes):
             status = "down"
-            error = "Bad response status"
+            error = f"Bad response status code: {extracted_metrics["response_status"]}"
 
         event = MonitoringEvent(
             u_guid=UUID(u_guid),
@@ -172,7 +166,7 @@ class MonitoringEventsService():
 
         if event.status == "up":
             self._hars.upload_file(
-                settings.PW_HAR_PATH, Key=f"{u_guid}/{urllib.parse.quote(url, safe="")}/{settings.AWS_REGION}/{urllib.parse.quote(event.c_at.isoformat().replace("+00:00", "Z"), safe="")}.har")
+                settings.PW_HAR_PATH, Key=f"{u_guid}/{w_guid}/{settings.AWS_REGION}/{event.c_at.isoformat().replace("+00:00", "Z")}.har")
 
         return {
             "current": new_status,
