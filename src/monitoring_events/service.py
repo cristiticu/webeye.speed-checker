@@ -1,5 +1,7 @@
+import gzip
+import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from playwright.sync_api import sync_playwright, Error
 from uuid import UUID
@@ -76,7 +78,7 @@ class MonitoringEventsService():
                 screenshot_bytes = page.screenshot(path=settings.PW_SCREENSHOT_PATH,
                                                    type="jpeg", quality=40)
                 self._screenshots.put_object(
-                    Key=f"{u_guid}/{w_guid}.jpg", Body=screenshot_bytes)
+                    Key=f"{u_guid}/{w_guid}.jpg", Body=screenshot_bytes, ContentType="image/jpeg")
 
                 print("Created screenshot")
 
@@ -119,7 +121,23 @@ class MonitoringEventsService():
 
         return patched_status
 
-    def check_webpage(self, u_guid: str, w_guid: str, url: str, save_screenshot: bool, accepted_status: list[str], check_string: str | None = None, timeout: float | None = None):
+    def export_har_to_s3(self, u_guid: str, w_guid: str, event: MonitoringEvent):
+        with open(settings.PW_HAR_PATH, "r", encoding="utf-8") as raw_json:
+            har_data = json.load(raw_json)
+
+        har_data["log"]["creator"]["name"] = "Webeye, using Playwright"
+
+        with gzip.open(settings.PW_HAR_PATH, "wt", encoding="utf-8") as gz_file:
+            json.dump(har_data, gz_file, separators=(",", ":"))
+
+        self._hars.upload_file(
+            settings.PW_HAR_PATH,
+            Key=f"{u_guid}/{w_guid}/{settings.AWS_REGION}/{event.c_at.isoformat().replace("+00:00", "Z")}.har.json.gz",
+            ExtraArgs={"ContentType": "application/json",
+                       "ContentEncoding": "gzip"}
+        )
+
+    def check_webpage(self, u_guid: str, w_guid: str, url: str, save_screenshot: bool, accepted_status: list[str], retention_days: int, check_string: str | None = None, timeout: float | None = None):
         current = self.get_current_status_or_create(u_guid, url)
 
         extracted_metrics: Any = self.pw_extract_metrics(
@@ -156,7 +174,8 @@ class MonitoringEventsService():
             status=status,
             results=extracted_metrics if status == "up" else None,
             error=error,
-            c_at=datetime.now(timezone.utc)
+            ttl=int((datetime.now() + timedelta(days=retention_days)).timestamp()),
+            c_at=datetime.now(timezone.utc),
         )
 
         print("Event:", event)
@@ -165,8 +184,7 @@ class MonitoringEventsService():
         new_status = self.update_current_status(event, current)
 
         if event.status == "up":
-            self._hars.upload_file(
-                settings.PW_HAR_PATH, Key=f"{u_guid}/{w_guid}/{settings.AWS_REGION}/{event.c_at.isoformat().replace("+00:00", "Z")}.har")
+            self.export_har_to_s3(u_guid, w_guid, event)
 
         return {
             "current": new_status,

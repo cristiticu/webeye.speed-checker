@@ -11,6 +11,7 @@ class MonitoringEvent(BaseModel):
     results: Mapping | None = None
     error: str | None = None
     c_at: datetime
+    ttl: int
 
     def to_db_item(self):
         h_key = f"{self.u_guid}#{self.url}"
@@ -23,6 +24,7 @@ class MonitoringEvent(BaseModel):
             "status": self.status,
             "results": self.results,
             "error": self.error,
+            "ttl": self.ttl,
         }
 
 

@@ -1,7 +1,15 @@
+import json
 from dotenv import load_dotenv
 import os
 
 load_dotenv('.env')
+
+EVENT_DEFAULT_RETENTION_DAYS = int(
+    os.environ.get('EVENT_BASE_RETENTION_DAYS', 30))
+EVENT_DEFAULT_CHECK_STRING = os.environ.get('EVENT_DEFAULT_CHECK_STRING', None)
+EVENT_DEFAULT_ACCEPTED_STATUS = json.loads(
+    os.environ.get('EVENT_DEFAULT_ACCEPTED_STATUS', '["2xx", "3xx"]'))
+EVENT_DEFAULT_TIMEOUT = int(os.environ.get('EVENT_DEFAULT_TIMEOUT', 20000))
 
 ENVIRONMENT = os.environ.get('ENVIRONMENT')
 AWS_REGION = os.environ.get('AWS_REGION', '')
